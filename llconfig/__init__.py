@@ -2,8 +2,10 @@ from collections import ChainMap, MutableMapping
 import logging
 import os
 from pathlib import Path
+import string
 import types
 from typing import Optional, Union, Any, Callable
+import warnings
 
 _logger = logging.getLogger(__name__)
 
@@ -39,6 +41,9 @@ class Config(MutableMapping):
             config_files_env_var: Name of env var containing colon delimited list of files to prepend to `config_files`.
                 Set to `None` to disable this behavior.
         """
+        _check_safe_env_name(env_prefix)
+        _check_safe_env_name(config_files_env_var)
+
         self.config_files = config_files
         self.env_prefix = env_prefix
         self.config_files_env_var = config_files_env_var
@@ -70,6 +75,8 @@ class Config(MutableMapping):
         """
         if key == self.config_files_env_var:
             raise KeyError('Conflict between directive name and `config_files_env_var` name.')
+
+        _check_safe_env_name(key)
 
         self._loaded = False
         self._default_layer[key] = default
@@ -219,3 +226,13 @@ class Config(MutableMapping):
 
     def __repr__(self):
         return '<{} {!r}>'.format(self.__class__.__name__, dict(self))
+
+
+# https://stackoverflow.com/a/2821183/570503
+_ENV_SAFE_CHARSET = set(string.ascii_uppercase + string.digits + '_')
+"""Set[str]: Set of characters considered to be safe for environment variable names."""
+
+
+def _check_safe_env_name(name, stacklevel=3):  # this function => Config object => caller of Config object == 3 levels
+    if not all(ch in _ENV_SAFE_CHARSET for ch in name):
+        warnings.warn('Name "{}" is unsafe for use in environment variables.'.format(name), stacklevel=stacklevel)
