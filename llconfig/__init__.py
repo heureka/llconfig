@@ -86,7 +86,11 @@ class Config(MutableMapping):
         """
         Load env layer and file layer.
 
-        There is no need to call this explicitly when `autoload` is turned on.
+        There is no need to call this explicitly when `autoload` is turned on, but it may be useful to trigger
+        possible env vars conversion errors as soon as possible.
+
+        Raises:
+             ValueError: When conversion fails for any of env vars.
         """
         self._load_env_vars()
         self._load_files()
@@ -94,12 +98,16 @@ class Config(MutableMapping):
 
     def _load_env_vars(self):
         _logger.debug('loading env vars')
-        prefix = self.env_prefix
-        self._env_layer = {
-            key[len(prefix):]: val
-            for key, val in os.environ.items()
-            if key.startswith(prefix) and key[len(prefix):] in self._default_layer
-        }
+        for prefixed_key, value in os.environ.items():
+            if not prefixed_key.startswith(self.env_prefix):
+                continue
+            key = prefixed_key[len(self.env_prefix):]
+            if key not in self._default_layer:
+                continue
+            try:
+                self._env_layer[key] = self._converters[key](value)
+            except Exception as e:
+                raise ValueError('Conversion error for environment variable "{}".'.format(self.env_prefix + key)) from e
         _logger.info('env vars loaded')
 
     def _load_files(self):
@@ -177,11 +185,6 @@ class Config(MutableMapping):
 
         return res
 
-    def test(self):
-        # TODO try to convert each env variable to raise error as soon as possible
-        # _logger.debug('testing configuration')
-        pass
-
     def __len__(self):
         return len(self._default_layer)
 
@@ -196,23 +199,16 @@ class Config(MutableMapping):
         if isinstance(key, slice):
             return self.get_namespace(key.start)
 
-        # 1. search in _override_layer
         if key in self._override_layer:
             return self._override_layer[key]
 
-        # 2. search in _env_layer (and convert!)
         if key in self._env_layer:
-            value = self._env_layer[key]
-            try:
-                return self._converters[key](value)
-            except Exception as e:
-                raise ValueError('Conversion error for key "{}".'.format(key)) from e
+            return self._env_layer[key]
 
-        # 3. search in _file_layer
         if key in self._file_layer:
             return self._file_layer[key]
 
-        # 4. search (and possibly fail) in _default_layer
+        # search in _default_layer is intended to possibly fail
         return self._default_layer[key]
 
     def __setitem__(self, key: str, val):

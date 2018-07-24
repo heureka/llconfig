@@ -26,6 +26,7 @@ from llconfig import Config
 
 c = Config('local/override.cnf.py', '/etc/my_app/conf.d', env_prefix='MY_', config_files_env_var='CONFIG')
 c.init('PORT', int, 80)
+c.load()  # recommended, but not required (see docstrings)
 c['PORT']
 ```
 
@@ -91,10 +92,6 @@ c.init('PICTURES', lambda raw: [Path(p) for p in raw.split(':')])  # "a.jpg:b.jp
 ```
 
 Any exception raised during conversion is re-raised as a `ValueError`.
-
-## Testing the configuration
-
-TODO
 
 ## Getting the values out
 
