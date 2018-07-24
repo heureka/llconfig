@@ -3,43 +3,84 @@ import logging
 import os
 from pathlib import Path
 import types
+from typing import Optional, Union, Any, Callable
 
 _logger = logging.getLogger(__name__)
 
 
 class Config(MutableMapping):
-    # TODO docstrings
+    """
+    Main object holding the configuration.
+    """
 
     __slots__ = (
-        'files', 'env_prefix', 'files_env_var', '_loaded', '_converters',
+        'config_files', 'env_prefix', 'config_files_env_var', '_loaded', '_converters',
         '_override_layer', '_env_layer', '_file_layer', '_default_layer'
     )
 
     autoload = True
+    """bool: Whether to automatically trigger load() on item access or configuration test (if not loaded yet)."""
 
-    file_glob_pattern = '*.cnf.py'
+    expansion_glob_pattern = '*.cnf.py'
+    """str: Pattern used to expand a directory, when passed instead of a config file."""
 
-    def __init__(self, *files, env_prefix: str = 'APP_', files_env_var: str = 'CONFIG'):
-        self.files = files
+    def __init__(
+            self,
+            *config_files: Union[str, Path],
+            env_prefix: str = 'APP_',
+            config_files_env_var: Optional[str] = 'CONFIG'
+    ):
+        """
+        Create configuration object, init empty layers.
+
+        Args:
+            *config_files: Configuration files to load to the file layer.
+            env_prefix: Prefix of all env vars handled by this library (set to empty string to disable prefixing).
+            config_files_env_var: Name of env var containing colon delimited list of files to prepend to `config_files`.
+                Set to `None` to disable this behavior.
+        """
+        self.config_files = config_files
         self.env_prefix = env_prefix
-        self.files_env_var = files_env_var
+        self.config_files_env_var = config_files_env_var
         self._loaded = False
+
         self._converters = {}
+        """Holds converter functions to be called every time when converting env variable."""
 
         self._override_layer = {}
-        self._env_layer = {}
-        self._file_layer = ChainMap()
-        self._default_layer = {}
+        """Layer holding runtime directive overrides, if any."""
 
-    def init(self, key: str, converter: callable, default=None):
-        if key == self.files_env_var:
-            raise KeyError('Conflict between directive name and `files_env_var` name.')
+        self._env_layer = {}
+        """Layer holding directives loaded from environment variables, if any."""
+
+        self._file_layer = ChainMap()
+        """Layer holding directives loaded from file(s), if any."""
+
+        self._default_layer = {}
+        """Layer holding default value for every initialized directive."""
+
+    def init(self, key: str, converter: Callable[[str], Any], default=None):
+        """
+        Initialize configuration directive.
+
+        Args:
+            key: Case-sensitive directive name which is used everywhere (in env vars, in config files, in defaults).
+            converter: Function, which is called when converting env variable value to Python.
+            default: Directive default value.
+        """
+        if key == self.config_files_env_var:
+            raise KeyError('Conflict between directive name and `config_files_env_var` name.')
 
         self._loaded = False
         self._default_layer[key] = default
         self._converters[key] = converter
 
     def load(self):
+        """
+        Load env layer and file layer.
+
+        There is no need to call this explicitly when `autoload` is turned on.
+        """
         self._load_env_vars()
         self._load_files()
         self._loaded = True
@@ -55,46 +96,63 @@ class Config(MutableMapping):
         _logger.info('env vars loaded')
 
     def _load_files(self):
-        _logger.debug('loading files')
+        _logger.debug('loading config files')
 
         paths = []
 
-        if self.files_env_var:
-            env_var = self.env_prefix + self.files_env_var
-            _logger.debug('loading files from env var "{}"'.format(env_var))
+        if self.config_files_env_var:
+            env_var = self.env_prefix + self.config_files_env_var
+            _logger.debug('getting list of config files from env var "{}"'.format(env_var))
             env_var_val = os.environ.get(env_var)
             if env_var_val:
                 paths.extend(Path(p) for p in env_var_val.split(':'))
 
-        if self.files:
-            paths.extend(Path(p) for p in self.files)
+        if self.config_files:
+            paths.extend(Path(p) for p in self.config_files)
 
-        files = []
+        config_files = []
         for p in paths:
             if p.is_dir():
-                files.extend(self._expand_dir(p))
+                config_files.extend(self._expand_dir(p))
             else:
-                files.append(p)
+                config_files.append(p)
 
-        _logger.debug('list of files to load: {}'.format(files))
-        self._file_layer.maps[:] = [self._load_file(f) for f in files]
-        _logger.info('files loaded')
+        _logger.debug('list of config files to load: {}'.format(config_files))
+        self._file_layer.maps[:] = [self._load_file(f) for f in config_files]
+        _logger.info('config files loaded')
 
     def _expand_dir(self, path: Path):
-        files = path.glob(self.file_glob_pattern)
+        """
+        Returns:
+            List[Path]: Contents of given path non-recursively expanded using `expansion_glob_pattern`, sorted by file
+                name in reverse order.
+        """
+        files = path.glob(self.expansion_glob_pattern)
         files = filter(lambda f: f.is_file(), files)
         files = sorted(files, key=lambda f: f.name, reverse=True)
-        return files
+        return list(files)
 
     def _load_file(self, file: Path):
+        """
+        Execute given file and parse config directives from it.
+
+        Returns:
+            Dict[str, Any]: Global namespace of executed file filtered to contain only initialized config keys.
+        """
         _logger.debug('loading file: "{}"'.format(file))
         d = types.ModuleType(file.stem)
         d.__file__ = file.name
         exec(compile(file.read_bytes(), file.name, 'exec'), d.__dict__)
         return {key: getattr(d, key) for key in dir(d) if key in self._default_layer}
 
-    # TODO naming?
     def get_namespace(self, namespace: str, lowercase: bool = True, trim_namespace: bool = True):
+        """
+        Returns:
+            Dict[str, Any]: Dict containing a subset of configuration options matching the specified namespace.
+
+        See Also:
+            http://flask.pocoo.org/docs/1.0/api/#flask.Config.get_namespace
+        """
         if not namespace:
             raise ValueError('Namespace must not be empty.')
 
@@ -113,7 +171,7 @@ class Config(MutableMapping):
         return res
 
     def test(self):
-        # TODO
+        # TODO try to convert each env variable to raise error as soon as possible
         # _logger.debug('testing configuration')
         pass
 

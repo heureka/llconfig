@@ -14,7 +14,7 @@ From top to bottom:
 
 1. Override layer = holds runtime directive overrides, if any.
 2. Env layer = directives loaded from environment variables are kept in this layer, if any.
-3. File layer = directives loaded from file(s) are kept in this layer, if any.
+3. File layer = directives loaded from configuration file(s) are kept in this layer, if any.
 4. Default layer = holds a default value for **every** initialized directive.
 
 ## Learn by example
@@ -24,14 +24,14 @@ The behavior is best shown on following example:
 ```python
 from llconfig import Config
 
-c = Config('local/override.cnf.py', '/etc/my_app/conf.d', env_prefix='MY_', files_env_var='CONFIG')
+c = Config('local/override.cnf.py', '/etc/my_app/conf.d', env_prefix='MY_', config_files_env_var='CONFIG')
 c.init('PORT', int, 80)
 c['PORT']
 ```
 
 The returned value is `80`, given that there is no `MY_PORT` env
 variable, no `MY_CONFIG` env variable and no `PORT = 1234` line in any of `local/override.cnf.py` or
-`/etc/my_app/conf.d/*.cnf.py` files.
+`/etc/my_app/conf.d/*.cnf.py` configuration files.
 
 ### Search process
 
@@ -49,13 +49,13 @@ Then, if the env variable is not present, the file layer is searched. There can 
    preserves order (so the leftmost part is always handled first).
 2. Files passed to constructor (`local/override.cnf.py` and `/etc/my_app/conf.d` in this example). If there
    is a path pointing to directory instead of simple file, the **directory is expanded** (non-recursively). The
-   expansion lists all files in given directory using `file_glob_pattern` attribute **sorted by file name
+   expansion lists all files in given directory using `expansion_glob_pattern` attribute **sorted by file name
    in reverse order** (you can change this behavior by extending this class and overriding `_expand_dir`
    method). The expanded files are used as separate sub-layers in place of original directory.
 
-When all of the file sub-layers are created, each file **is executed** and each file's global namespace is
-searched for the `PORT` directive (still preserving the order). If found, the directive is returned as is
-(without conversion).
+When all of the file sub-layers are created, each configuration file **is executed** and each file's global
+namespace is searched for the `PORT` directive (still preserving the order). If found, the directive is returned
+as is (without conversion).
 
 The default layer is searched as a last resort. As it contains values from directives' `init`, there is always a
 default value (unless a search for non-initialized directive is performed). The default value is returned as is.
@@ -65,7 +65,7 @@ default value (unless a search for non-initialized directive is performed). The 
 Directive is initialized using `init` method. It takes directive name, converter function (see bellow) and
 a default value (which is `None` by default). It is recommended to name directives using upper-case only.
 **Any directive you want to use must be initialized,** otherwise it is ignored (unknown env variables, unknown
-directives in files, etc.).
+directives in configuration files, etc.).
 
 This means that once you initialize a directive you can safely use it without `KeyError`s or without calling
 `c.get('PORT', 'default')`. There will always be at least the default value.
@@ -123,5 +123,5 @@ dict(c)  # => {'DB_HOST': 'localhost', 'DB_PORT': 3306, 'DB_USER': None}
 
 **In short: do not use this library in untrusted environment,** unless you completely understand how it works and
 what possible attack vectors are. The main concern is that each file forming the file layer is executed. There
-is also a possibility to load files using `files_env_var` environment variable (`APP_CONFIG` by default),
+is also a possibility to load files using `config_files_env_var` environment variable (`APP_CONFIG` by default),
 unless disabled. On top of that, you can compromise your application using badly written converter.
