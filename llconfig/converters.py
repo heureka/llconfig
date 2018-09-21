@@ -6,4 +6,12 @@ def bool_like(val):
 
 
 def json(val):
-    return _json.loads(val, encoding='utf-8')
+    """
+    A convenient converter that JSON-deserializes strings or checks if Python
+    object is JSON-serializable.
+    """
+    if isinstance(val, str):
+        return _json.loads(val, encoding='utf-8')
+    else:
+        _json.dumps(val)
+        return val
