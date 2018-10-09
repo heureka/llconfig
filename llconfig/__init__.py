@@ -71,7 +71,7 @@ class Config(MutableMapping):
         Args:
             key: Case-sensitive directive name which is used everywhere (in env vars, in config files, in defaults).
             converter: Function, which is called when converting env variable value to Python.
-            default: Directive default value. Converter is applied on it.
+            default: Directive default value.
         """
         if key == self.config_files_env_var:
             raise KeyError('Conflict between directive name and `config_files_env_var` name.')
@@ -79,7 +79,7 @@ class Config(MutableMapping):
         _check_safe_env_name(key)
 
         self._loaded = False
-        self._default_layer[key] = converter(default)
+        self._default_layer[key] = default
         self._converters[key] = converter
 
         if converter == bool:

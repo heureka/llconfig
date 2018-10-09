@@ -1,21 +1,5 @@
-import contextlib
-import os
-
 from llconfig import Config
-
-
-@contextlib.contextmanager
-def env(**kwargs):
-    original = {key: os.getenv(key) for key in kwargs}
-    os.environ.update({key: str(value) for key, value in kwargs.items()})
-    try:
-        yield
-    finally:
-        for key, value in original.items():
-            if value is None:
-                del os.environ[key]
-            else:
-                os.environ[key] = value
+from tests import env
 
 
 def test_prefixed_variables_override():
@@ -47,7 +31,7 @@ def test_nonprefixed_variables_dont_override_nonempty_prefix():
 
 def test_int_from_environ():
     c = Config(env_prefix='PREFIX_')
-    c.init('NUM', int, 42)
+    c.init('NUM', int, 666)
     with env(PREFIX_NUM='42'):
         c.load()
 
