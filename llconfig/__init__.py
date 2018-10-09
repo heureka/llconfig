@@ -1,4 +1,5 @@
-from collections import ChainMap, MutableMapping
+from collections import ChainMap
+from collections.abc import MutableMapping
 import logging
 import os
 from pathlib import Path
