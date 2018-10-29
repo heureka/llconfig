@@ -216,6 +216,9 @@ class Config(MutableMapping):
         # search in _default_layer is intended to possibly fail
         return self._default_layer[key]
 
+    def __getattr__(self, key):
+        return self.__getitem__(key.upper())
+
     def __setitem__(self, key: str, val):
         if key not in self._default_layer:
             raise KeyError('Overriding uninitialized key is prohibited.')
