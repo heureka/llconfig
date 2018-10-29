@@ -225,6 +225,12 @@ class Config(MutableMapping):
     def __delitem__(self, key: str):
         del self._override_layer[key]
 
+    def __getattr__(self, key):
+        return self[key]
+
+    def __dir__(self):
+        return super().__dir__() + list(self._default_layer.keys())
+
     def __repr__(self):
         return '<{} {!r}>'.format(self.__class__.__name__, dict(self))
 

@@ -42,3 +42,19 @@ def test_nonexisting_config_is_missing():
 
     with pytest.raises(KeyError):
         c['NOMNOMNOM']
+
+
+def test_properties():
+    c = Config()
+    c.init('TEST', str, 'TEST')
+    c.load()
+
+    assert c.TEST == 'TEST'
+
+
+def test_dir():
+    c = Config()
+    c.init('TEST', str, 'TEST')
+    c.load()
+
+    assert 'TEST' in dir(c)
