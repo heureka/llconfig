@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='llconfig',
-    version='1.0.0',
+    version='1.0.1',
     packages=['llconfig'],
     license='MIT',
     author='Heureka.cz',
