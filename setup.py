@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='llconfig',
-    version='1.0.1',
+    version='2.0.0',
     packages=['llconfig'],
     license='Apache 2.0',
     author='Heureka.cz',
