@@ -6,7 +6,7 @@ setup(
     name='llconfig',
     version='1.0.1',
     packages=['llconfig'],
-    license='MIT',
+    license='Apache 2.0',
     author='Heureka.cz',
     author_email='vyvoj@heureka.cz',
     description='Lightweight layered configuration library.',
