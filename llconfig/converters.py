@@ -21,4 +21,4 @@ def json(val):
     """
     A convenient converter that JSON-deserializes strings.
     """
-    return _json.loads(val, encoding='utf-8')
+    return _json.loads(val)
